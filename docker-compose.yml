@@ -1,0 +1,25 @@
+services:
+  spark:
+    image: apache/spark:3.5.1-scala2.12-java17-python3-ubuntu
+    container_name: spark-local
+    user: root
+    ports:
+      - "8080:8080" # Spark Web UI
+      - "7077:7077" # Spark master
+      - "4040:4040" # Spark job UI
+    volumes:
+      - ./spark-app:/app
+    networks:
+      - ir-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    command: >
+      bash -c "
+      pip install psycopg2-binary &&
+      wget -P /opt/spark/jars https://jdbc.postgresql.org/download/postgresql-42.7.1.jar &&
+      /opt/spark/bin/spark-class org.apache.spark.deploy.master.Master --host 0.0.0.0 --port 7077 --webui-port 8080
+      "
+
+networks:
+  ir-network:
+    driver: bridge

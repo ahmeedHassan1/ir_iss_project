@@ -1,0 +1,28 @@
+{
+  "name": "ir-frontend",
+  "version": "1.0.0",
+  "description": "Secure Information Retrieval System Frontend",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^16.0.7",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1",
+    "axios": "^1.6.2",
+    "zustand": "^4.4.7",
+    "framer-motion": "^10.16.16",
+    "lucide-react": "^0.303.0",
+    "recharts": "^2.10.3"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.0",
+    "postcss": "^8.4.32",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.56.0",
+    "eslint-config-next": "^14.0.4"
+  }
+}
