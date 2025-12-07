@@ -23,8 +23,12 @@ export const checkSparkContainer = async () => {
  */
 export const installSparkDependencies = async () => {
 	try {
-		console.log("Installing psycopg2-binary in Spark container...");
-		await execPromise("docker exec spark-local pip install psycopg2-binary");
+		console.log(
+			"Installing Python dependencies in Spark container (psycopg2-binary, pycryptodome)..."
+		);
+		await execPromise(
+			"docker exec spark-local pip install --quiet --no-cache-dir psycopg2-binary pycryptodome"
+		);
 		console.log("✅ Dependencies installed successfully");
 		return true;
 	} catch (error) {

@@ -97,6 +97,7 @@ const contentHash = crypto.createHash("sha256").update(content).digest("hex");
 - User passwords hashed on registration: [authController.js](backend/controllers/authController.js)
 - Document content integrity via SHA-256: [uploadController.js](backend/controllers/uploadController.js)
 - JWT tokens hashed in database for revocation tracking
+- `users` table stores the per-password `salt` (see `backend/config/db.js`) so bcrypt can derive unique hashes per user and resist rainbow-table attacks; without persisting the salt, password verification would be impossible.
 
 ---
 
@@ -133,6 +134,8 @@ const authTag = cipher.getAuthTag();
 - All uploaded documents encrypted at rest: [uploadController.js](backend/controllers/uploadController.js)
 - Documents decrypted only when accessed: [uploadController.js](backend/controllers/uploadController.js) - `getDocument()`
 - Database stores: `encrypted_content`, `iv`, `auth_tag`
+- `iv` (initialization vector) is stored per document to ensure AES-GCM never reuses a nonce, and `auth_tag` is retained so integrity verification succeeds during decryption. Both values are non-secret metadata but are mandatory to retrieve plaintext securely.
+- `content_hash` (SHA-256) is stored alongside encrypted blobs to prove the decrypted plaintext matches what the uploader submitted and to support tamper detection/deduplication workflows.
 
 **Database Schema**:
 

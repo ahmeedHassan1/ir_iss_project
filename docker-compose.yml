@@ -9,6 +9,8 @@ services:
       - "4040:4040" # Spark job UI
     volumes:
       - ./spark-app:/app
+    environment:
+      - ENCRYPTION_KEY=5d213f05629da2fbfb156faf9f5a9145
     networks:
       - ir-network
     extra_hosts:

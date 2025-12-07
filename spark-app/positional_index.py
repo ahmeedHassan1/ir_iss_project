@@ -5,9 +5,11 @@ Connects to PostgreSQL and builds a positional index for all documents
 """
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, udf, explode, array
+from pyspark.sql.functions import col, udf, explode
 from pyspark.sql.types import ArrayType, IntegerType, StringType, StructType, StructField
+import os
 import re
+from Crypto.Cipher import AES
 import psycopg2
 from psycopg2.extras import execute_values
 
@@ -19,6 +21,25 @@ DB_CONFIG = {
     'user': 'postgres',
     'password': '107090'  # Update this with your actual password
 }
+
+
+def normalize_key(key_value: str) -> bytes:
+    """Normalize encryption key to 32 bytes (AES-256 requirement)."""
+    key_bytes = key_value.encode('utf-8')
+    if len(key_bytes) < 32:
+        key_bytes = key_bytes.ljust(32, b'0')
+    return key_bytes[:32]
+
+
+def decrypt_document(encrypted_hex: str, iv_hex: str, auth_tag_hex: str, key_bytes: bytes) -> str:
+    """Decrypt AES-256-GCM payload stored as hex strings."""
+    if not encrypted_hex or not iv_hex or not auth_tag_hex:
+        return ''
+
+    cipher = AES.new(key_bytes, AES.MODE_GCM, nonce=bytes.fromhex(iv_hex))
+    cipher.update(b'')
+    plaintext = cipher.decrypt_and_verify(bytes.fromhex(encrypted_hex), bytes.fromhex(auth_tag_hex))
+    return plaintext.decode('utf-8')
 
 def tokenize_text(text):
     """
@@ -56,6 +77,12 @@ def main():
     print("POSITIONAL INDEX BUILDER - Apache Spark")
     print("=" * 80)
     
+    encryption_key = os.getenv('ENCRYPTION_KEY')
+    if not encryption_key:
+        raise RuntimeError('ENCRYPTION_KEY environment variable is required to decrypt documents.')
+
+    aes_key = normalize_key(encryption_key)
+
     # Create Spark session
     spark = SparkSession.builder \
         .appName("PositionalIndexBuilder") \
@@ -88,7 +115,28 @@ def main():
             return
         
         # Select necessary columns
-        docs = documents_df.select("doc_id", "content")
+        def decrypt_with_key(encrypted, iv_value, auth_tag_value):
+            try:
+                return decrypt_document(encrypted, iv_value, auth_tag_value, aes_key)
+            except Exception as exc:
+                raise RuntimeError(f"Failed to decrypt document: {exc}") from exc
+
+        decrypt_udf = udf(decrypt_with_key, StringType())
+
+        decrypted_docs = documents_df.select(
+            "doc_id",
+            decrypt_udf(col("encrypted_content"), col("iv"), col("auth_tag")).alias("content")
+        )
+
+        docs = decrypted_docs.filter(col("content").isNotNull() & (col("content") != ""))
+
+        processed_count = docs.count()
+        print(f"📄 Successfully decrypted {processed_count} documents for indexing")
+
+        if processed_count == 0:
+            print("⚠️  No decryptable documents found. Please upload documents first.")
+            spark.stop()
+            return
         
         # Register UDF for building positional index
         build_index_udf = udf(build_positional_index, ArrayType(StructType([
